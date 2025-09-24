@@ -1,7 +1,17 @@
 using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
+
+[System.Serializable]
+public sealed class ScanEntry
+{
+    public string imageName;    // Image Library 이름
+    public GameObject prefab;   // 스폰할 캐릭터
+    public string npcName = "NPC";  //대화창에 표시할 이름
+    [TextArea] public string[] lines;   //대사
+}
 
 public sealed class StoryManager : MonoBehaviour
 {
@@ -15,36 +25,25 @@ public sealed class StoryManager : MonoBehaviour
     [SerializeField] ARTrackedImageManager trackedImageManager;
     [SerializeField] Camera arCamera;
 
+    [Header("Scanning Table")]
+    [SerializeField] private List<ScanEntry> scanEntries = new(); // 인스펙터에서 세팅
+    [SerializeField] private string waveAnimStateName = "Wave";
+    [SerializeField] private float waveCrossfade = 0.1f;
+    [SerializeField] private Vector3 spawnOffset = new Vector3(0f, 0f, 0.1f); // 이미지 앞 10cm
+
     [Header("In-Game Camera")]
     [SerializeField] Camera inGameCamera;
 
-    [Header("NPC Prefabs")]
-    [SerializeField] GameObject dungddangiPrefab;
-    [SerializeField] GameObject minjaePrefab;
-    [SerializeField] GameObject sukyungPrefab;
-    [SerializeField] GameObject seheePrefab;
-
-    [Header("Quest Prefabs")]
-    [SerializeField] GameObject keyboardPrefab;
-    [SerializeField] GameObject vrGogiPrefab;
-    [SerializeField] GameObject tabletPrefab;
-    [SerializeField] GameObject giftBoxPrefab;
-
-    [Header("Image Names (Reference Image Library)")]
-    [SerializeField] string dungddangiImageName   = "Dungddangi_Image";
-    [SerializeField] string contentRoomImageName  = "콘텐츠제작실_Image";
-    [SerializeField] string keyboardImageName     = "Keyboard_Image";
-    [SerializeField] string showroomImageName     = "쇼룸_Image";
-    [SerializeField] string vrGogiImageName       = "VRGogi_Image";
-    [SerializeField] string arvrRoomImageName     = "ARVR_Image";
-    [SerializeField] string tabletImageName       = "Tablet_Image";
-    [SerializeField] string giftBoxImageName      = "GiftBox_Image";
-
     readonly Dictionary<string, GameObject> _spawned = new();
+    Dictionary<string, ScanEntry> _scanMap;
     Queue<string> _dialogueQueue;
     string _playerName = "플레이어";
     string _dialogueName = "뚱땅이";
     AudioListener _arAL, _gameAL;
+
+    bool bIsMeetMinjae = false;
+    bool bIsMeetSukyng = false;
+    bool bIsMeetSehee = false;
 
     void Awake()
     {
@@ -54,8 +53,15 @@ public sealed class StoryManager : MonoBehaviour
         if (!trackedImageManager)
             trackedImageManager = FindAnyObjectByType<ARTrackedImageManager>(FindObjectsInactive.Include);
 
-        if (arCamera)    _arAL   = arCamera.GetComponent<AudioListener>() ?? arCamera.gameObject.AddComponent<AudioListener>();
-        if (inGameCamera)_gameAL = inGameCamera.GetComponent<AudioListener>() ?? inGameCamera.gameObject.AddComponent<AudioListener>();
+        if (arCamera) _arAL = arCamera.GetComponent<AudioListener>() ?? arCamera.gameObject.AddComponent<AudioListener>();
+        if (inGameCamera) _gameAL = inGameCamera.GetComponent<AudioListener>() ?? inGameCamera.gameObject.AddComponent<AudioListener>();
+
+        _scanMap = new Dictionary<string, ScanEntry>();
+        foreach (var e in scanEntries)
+        {
+            if (e != null && !string.IsNullOrWhiteSpace(e.imageName) && !_scanMap.ContainsKey(e.imageName))
+                _scanMap.Add(e.imageName, e);
+        }
     }
 
     void OnEnable()
@@ -79,134 +85,53 @@ public sealed class StoryManager : MonoBehaviour
     public void SetStoryState(StoryState next)
     {
         CurrentStoryState = next;
-        SwitchCameraFor(next, focus:null);
 
         switch (next)
         {
             case StoryState.Game_Start_Screen:
+                SwitchCameraAR(false);
                 UIManager.Instance.ShowStart();
                 break;
 
             case StoryState.Player_Name_Input:
+                SwitchCameraAR(false);
                 UIManager.Instance.ShowNameInput();
                 break;
 
             case StoryState.Intro_Meet_Dungddangi:
+                SwitchCameraAR(false);
                 BeginDialogue("뚱땅이", new[]
                 {
-                    $"안녕, {_playerName}!",
-                    "메타버스콘텐츠과에 온걸 환영해!",
-                    "우리 학과에 대해 소개할게"
+                    $"{_playerName}님 안녕하세요!",
+                    "메타버스콘텐츠과에 오신걸 환영합니다!",
+                    "저는 오늘 학과 소개를 도와드릴 뚱땅이입니다.",
+                    "우리 과는 탄탄한 커리큘럼으로 단기간에 체계적인 실무 중심의 수업을 통해",
+                    "메타버스콘텐츠 포트폴리오를 제작하고 개인의 역량을 더 빠르게 향상시킬 수 있어요!",
+                    "그러면 무엇을 배우는지 보기위해 전공과목 수업이 진행되는 콘텐츠제작실로 안내할게요!"
                 });
                 break;
 
-            // === 콘텐츠 제작실 ===
-            case StoryState.Move_To_Content_Room:
-                UIManager.Instance.ShowActions(false, true, false);
+            case StoryState.Camera_Standby:
+                SwitchCameraAR(false);
+                UIManager.Instance.ShowActivateCamera();
                 break;
 
-            case StoryState.Meet_Minjae_In_Content_Room:
-                BeginDialogue("민재", new[]
-                {
-                    "콘텐츠 제작실에 온 걸 환영해!",
-                    "키보드를 찾아서 가져다줘."
-                });
+            case StoryState.Camera_Scanning:
+                UIManager.Instance.ShowCameraScanning();
+                SwitchCameraAR(true);
                 break;
 
-            case StoryState.Quest_Find_Keyboard:
-                UIManager.Instance.ShowMission("키보드 이미지를 비춰서 찾아라.");
-                break;
-
-            case StoryState.Found_Keyboard:
-                UIManager.Instance.ShowActions(true, false, false);
-                break;
-
-            case StoryState.Delivered_Keyboard:
-                BeginDialogue("민재", new[] { "완벽해. 다음 장소로 가자." });
-                break;
-
-            case StoryState.Content_Room_Explained:
-                UIManager.Instance.ShowActions(false, true, false);
-                break;
-
-            // === 쇼룸 ===
-            case StoryState.Move_To_ShowRoom:
-                UIManager.Instance.ShowActions(false, true, false);
-                break;
-
-            case StoryState.Meet_Sukyung_In_Showroom:
-                BeginDialogue("수경", new[] { "쇼룸이야. VR 기기를 찾아와." });
-                break;
-
-            case StoryState.Quest_Find_VRGogi:
-                UIManager.Instance.ShowMission("VR 기기 이미지를 인식시켜라.");
-                break;
-
-            case StoryState.Found_VRGogi:
-                UIManager.Instance.ShowActions(true, false, false);
-                break;
-
-            case StoryState.Delivered_VRGogi:
-                BeginDialogue("수경", new[] { "좋아. 이제 AR/VR 실습실로 이동하자." });
-                break;
-
-            case StoryState.Showroom_Explained:
-                UIManager.Instance.ShowActions(false, true, false);
-                break;
-
-            // === AR/VR 실습실 ===
-            case StoryState.Move_To_ARVR_Room:
-                UIManager.Instance.ShowActions(false, true, false);
-                break;
-
-            case StoryState.Meet_Sehee_In_ARVR_Room:
-                BeginDialogue("세희", new[] { "실습실이야. 타블렛을 찾아서 넘겨줘." });
-                break;
-
-            case StoryState.Quest_Find_Tablet:
-                UIManager.Instance.ShowMission("타블렛 이미지를 인식시켜라.");
-                break;
-
-            case StoryState.Found_Tablet:
-                UIManager.Instance.ShowActions(true, false, false);
-                break;
-
-            case StoryState.Delivered_Tablet:
-                BeginDialogue("세희", new[] { "수고했어. 마지막으로 돌아가자." });
-                break;
-
-            case StoryState.ARVR_Room_Explained:
-                UIManager.Instance.ShowActions(false, true, false);
-                break;
-
-            // === 엔딩 ===
-            case StoryState.Ending_With_Dungddangi:
-                BeginDialogue("뚱땅이", new[] { "마지막이야. 선물을 줄게." });
-                break;
-
-            case StoryState.Give_Gift_Prompt:
-                UIManager.Instance.ShowActions(false, false, true);
-                break;
-
-            case StoryState.Gift_Received:
-                UIManager.Instance.ShowActions(false, true, false);
-                break;
-
-            case StoryState.Final_Ending_Prompt:
-                UIManager.Instance.ShowFinal("입학을 결정했습니까?");
-                break;
-
-            case StoryState.Game_Ended:
-                BeginDialogue("시스템", new[] { "플레이 감사합니다." });
+            case StoryState.Dialogue_Running:
+                    // TODO : 스폰 위치 조정하기
                 break;
         }
     }
 
     public void OnNextDialoguePressed() => AdvanceDialogue();
-    public void OnDeliverPressed() => AdvanceDeliver();
-    public void OnMoveNextPressed() => GoNextPlace();
     public void OnReceiveGiftPressed() => SetStoryState(StoryState.Gift_Received);
+    public void OnARCameraClosePressed() => SetStoryState(StoryState.Camera_Standby);
     public void OnFinalAnswer(bool yes) => SetStoryState(StoryState.Game_Ended);
+    public void OnARCameraActivatePressed() => SetStoryState(StoryState.Camera_Scanning);
 
     // ===== AR =====
     void OnTrackedImagesChanged(ARTrackedImagesChangedEventArgs args)
@@ -214,48 +139,85 @@ public sealed class StoryManager : MonoBehaviour
         foreach (var a in args.added)   TryHandleTracked(a);
         foreach (var u in args.updated) TryHandleTracked(u);
         foreach (var r in args.removed)
-        {
             if (_spawned.TryGetValue(r.referenceImage.name, out var go) && go) go.SetActive(false);
-        }
     }
-
     void TryHandleTracked(ARTrackedImage img)
     {
+        if (CurrentStoryState != StoryState.Camera_Scanning) return;
         if (img.trackingState != TrackingState.Tracking) return;
 
-        string expected = GetExpectedImageNameForCurrentState();
-        if (string.IsNullOrEmpty(expected)) return;
-        if (!string.Equals(img.referenceImage.name, expected, System.StringComparison.Ordinal)) return;
+        var key = img.referenceImage.name;
+        if (!_scanMap.TryGetValue(key, out var entry) || entry.prefab == null) return;
 
-        switch (CurrentStoryState)
+        StartCoroutine(PlayCharacterIntroRoutine(img, entry));
+    }
+
+    // 코루틴 및 유틸 추가
+    IEnumerator PlayCharacterIntroRoutine(ARTrackedImage img, ScanEntry entry)
+    {
+        SetStoryState(StoryState.Character_Intro);
+
+        // 1) 스폰
+        var go = GetOrSpawn(entry.prefab, entry.imageName);
+        var t = go.transform;
+
+        // 이미지 평면 앞쪽으로 오프셋, 카메라를 바라보게 정렬
+        var forward = arCamera ? (t.position - arCamera.transform.position) : img.transform.forward;
+        t.SetPositionAndRotation(
+            img.transform.TransformPoint(spawnOffset),
+            Quaternion.LookRotation(forward, Vector3.up)
+        );
+        go.SetActive(true);
+
+        // 2) 애니 재생(선택)
+        var animator = go.GetComponentInChildren<Animator>();
+        if (animator && !string.IsNullOrEmpty(waveAnimStateName))
         {
-            case StoryState.Intro_Meet_Dungddangi:
-                SpawnAt(img, dungddangiPrefab);
-                SwitchCameraFor(CurrentStoryState, focus:_spawned[dungddangiImageName].transform);
-                break;
-
-            case StoryState.Quest_Find_Keyboard:
-                SpawnAt(img, keyboardPrefab);
-                SetStoryState(StoryState.Found_Keyboard);
-                break;
-
-            case StoryState.Quest_Find_VRGogi:
-                SpawnAt(img, vrGogiPrefab);
-                SetStoryState(StoryState.Found_VRGogi);
-                break;
-
-            case StoryState.Quest_Find_Tablet:
-                SpawnAt(img, tabletPrefab);
-                SetStoryState(StoryState.Found_Tablet);
-                break;
-
-            case StoryState.Ending_With_Dungddangi:
-                SpawnAt(img, giftBoxPrefab);
-                SwitchCameraFor(CurrentStoryState, focus:_spawned[giftBoxImageName].transform);
-                break;
+            animator.Update(0f);
+            animator.CrossFade(waveAnimStateName, waveCrossfade);
+            yield return WaitForAnimDone(animator, waveAnimStateName);
+        }
+        else
+        {
+            yield return new WaitForSeconds(0.8f);
         }
 
-        if (_spawned.TryGetValue(img.referenceImage.name, out var spawned)) spawned.SetActive(true);
+        // 3) 대화 시작
+        if (entry.lines != null && entry.lines.Length > 0)
+            BeginDialogue(entry.npcName, entry.lines);
+        else
+            BeginDialogue(entry.npcName, new[] { "설정된 대사가 없습니다." });
+
+        SetStoryState(StoryState.Dialogue_Running);
+    }
+
+    GameObject GetOrSpawn(GameObject prefab, string key)
+    {
+        if (!_spawned.TryGetValue(key, out var go) || !go)
+        {
+            go = Instantiate(prefab);
+            _spawned[key] = go;
+        }
+        return go;
+    }
+
+    IEnumerator WaitForAnimDone(Animator animator, string stateName)
+    {
+        int layer = 0;
+        // 진입 대기
+        while (true)
+        {
+            var st = animator.GetCurrentAnimatorStateInfo(layer);
+            if (st.IsName(stateName)) break;
+            yield return null;
+        }
+        // 종료 대기
+        while (true)
+        {
+            var st = animator.GetCurrentAnimatorStateInfo(layer);
+            if (!st.IsName(stateName) || st.normalizedTime >= 1f) break;
+            yield return null;
+        }
     }
 
     // ===== Flow helpers =====
@@ -272,12 +234,9 @@ public sealed class StoryManager : MonoBehaviour
         {
             switch (CurrentStoryState)
             {
-                case StoryState.Intro_Meet_Dungddangi:  SetStoryState(StoryState.Move_To_Content_Room); break;
-                case StoryState.Delivered_Keyboard:     SetStoryState(StoryState.Content_Room_Explained); break;
-                case StoryState.Delivered_VRGogi:       SetStoryState(StoryState.Showroom_Explained); break;
-                case StoryState.Delivered_Tablet:       SetStoryState(StoryState.ARVR_Room_Explained); break;
+                case StoryState.Intro_Meet_Dungddangi: SetStoryState(StoryState.Camera_Standby); break;
+                case StoryState.Dialogue_Running: SetStoryState(StoryState.Camera_Standby); break;
                 case StoryState.Ending_With_Dungddangi: SetStoryState(StoryState.Give_Gift_Prompt); break;
-                default:                                UIManager.Instance.ShowActions(false, true, false); break;
             }
             return;
         }
@@ -287,140 +246,17 @@ public sealed class StoryManager : MonoBehaviour
         else { _dialogueQueue = null; AdvanceDialogue(); }
     }
 
-    void AdvanceDeliver()
+    void SwitchCameraAR(bool on)
     {
-        switch (CurrentStoryState)
-        {
-            case StoryState.Found_Keyboard: SetStoryState(StoryState.Delivered_Keyboard); break;
-            case StoryState.Found_VRGogi:   SetStoryState(StoryState.Delivered_VRGogi);   break;
-            case StoryState.Found_Tablet:   SetStoryState(StoryState.Delivered_Tablet);   break;
-        }
-    }
+        if (arCamera) arCamera.gameObject.SetActive(on);
+        if (inGameCamera) inGameCamera.gameObject.SetActive(!on);
 
-    void GoNextPlace()
-    {
-        switch (CurrentStoryState)
-        {
-            case StoryState.Move_To_Content_Room:
-            case StoryState.Content_Room_Explained:
-                SetStoryState(StoryState.Meet_Minjae_In_Content_Room); break;
+        if (_arAL) _arAL.enabled = on;
+        if (_gameAL) _gameAL.enabled = !on;
 
-            case StoryState.Move_To_ShowRoom:
-            case StoryState.Showroom_Explained:
-                SetStoryState(StoryState.Meet_Sukyung_In_Showroom); break;
-
-            case StoryState.Move_To_ARVR_Room:
-            case StoryState.ARVR_Room_Explained:
-                SetStoryState(StoryState.Meet_Sehee_In_ARVR_Room); break;
-
-            case StoryState.Gift_Received:
-                SetStoryState(StoryState.Final_Ending_Prompt); break;
-        }
-    }
-
-    // ===== Spawn =====
-    void SpawnAt(ARTrackedImage img, GameObject prefab)
-    {
-        if (!prefab || !img) return;
-
-        if (!_spawned.TryGetValue(img.referenceImage.name, out var go) || !go)
-        {
-            go = Instantiate(prefab);
-            _spawned[img.referenceImage.name] = go;
-        }
-
-        go.transform.SetPositionAndRotation(img.transform.position, img.transform.rotation);
-        go.SetActive(true);
-    }
-
-    // ===== Camera control (StoryManager 내부 처리) =====
-    enum CamMode { AR, InGame }
-
-    void SwitchCameraFor(StoryState state, Transform focus)
-    {
-        bool isSearch =
-            state is StoryState.Quest_Find_Keyboard
-                       or StoryState.Quest_Find_VRGogi
-                       or StoryState.Quest_Find_Tablet
-                       or StoryState.Meet_Minjae_In_Content_Room
-                       or StoryState.Meet_Sukyung_In_Showroom
-                       or StoryState.Meet_Sehee_In_ARVR_Room;
-
-        bool isDialogue =
-            state is StoryState.Intro_Meet_Dungddangi
-                       or StoryState.Ending_With_Dungddangi
-                       or StoryState.Game_Ended;
-
-        if (isSearch) SetCamMode(CamMode.AR, null);
-        else if (isDialogue) SetCamMode(CamMode.InGame, focus ?? GetFocusTransformForState());
-        else SetCamMode(CamMode.AR, null);
-    }
-
-    void SetCamMode(CamMode mode, Transform focus)
-    {
-        bool useAR = mode == CamMode.AR;
-
-        if (arCamera)     arCamera.gameObject.SetActive(useAR);
-        if (inGameCamera) inGameCamera.gameObject.SetActive(!useAR);
-
-        if (_arAL)   _arAL.enabled   = useAR;
-        if (_gameAL) _gameAL.enabled = !useAR;
-
-        if (arSession)       arSession.enabled = useAR;
-        if (arOrigin)        arOrigin.enabled  = useAR;
-        if (arBackground)    arBackground.enabled = useAR;
-        if (trackedImageManager) trackedImageManager.enabled = useAR;
-
-        if (!useAR && inGameCamera && focus)
-        {
-            // 간단한 대화 샷
-            Vector3 offset = new Vector3(0f, 1.7f, 2.2f);
-            inGameCamera.transform.position = focus.position + focus.TransformDirection(offset);
-            inGameCamera.transform.LookAt(focus);
-        }
-    }
-
-    Transform GetFocusTransformForState()
-    {
-        string key = CurrentStoryState switch
-        {
-            StoryState.Intro_Meet_Dungddangi      => dungddangiImageName,
-            StoryState.Meet_Minjae_In_Content_Room=> contentRoomImageName,
-            StoryState.Meet_Sukyung_In_Showroom   => showroomImageName,
-            StoryState.Meet_Sehee_In_ARVR_Room    => arvrRoomImageName,
-            StoryState.Ending_With_Dungddangi     => giftBoxImageName,
-            _ => null
-        };
-
-        if (key != null && _spawned.TryGetValue(key, out var go) && go) return go.transform;
-        return null;
-    }
-
-    string GetExpectedImageNameForCurrentState()
-    {
-        return CurrentStoryState switch
-        {
-            StoryState.Intro_Meet_Dungddangi => dungddangiImageName,
-
-            StoryState.Meet_Minjae_In_Content_Room or StoryState.Content_Room_Explained
-                => contentRoomImageName,
-            StoryState.Quest_Find_Keyboard or StoryState.Found_Keyboard or StoryState.Quest_Deliver_Keyboard
-                => keyboardImageName,
-
-            StoryState.Meet_Sukyung_In_Showroom or StoryState.Showroom_Explained
-                => showroomImageName,
-            StoryState.Quest_Find_VRGogi or StoryState.Found_VRGogi or StoryState.Quest_Deliver_VRGogi
-                => vrGogiImageName,
-
-            StoryState.Meet_Sehee_In_ARVR_Room or StoryState.ARVR_Room_Explained
-                => arvrRoomImageName,
-            StoryState.Quest_Find_Tablet or StoryState.Found_Tablet or StoryState.Quest_Deliver_Tablet
-                => tabletImageName,
-
-            StoryState.Ending_With_Dungddangi
-                => giftBoxImageName,
-
-            _ => string.Empty
-        };
+        if (arSession) arSession.enabled = on;
+        if (arOrigin) arOrigin.enabled = on;
+        if (arBackground) arBackground.enabled = on;
+        if (trackedImageManager) trackedImageManager.enabled = on && CurrentStoryState == StoryState.Camera_Scanning;
     }
 }

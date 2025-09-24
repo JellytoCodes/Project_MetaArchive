@@ -10,8 +10,8 @@ public sealed class UIManager : MonoBehaviour
     [SerializeField] private GameObject startPanel;
     [SerializeField] private GameObject nameInputPanel;
     [SerializeField] private GameObject dialoguePanel;
-    [SerializeField] private GameObject missionPanel;
-    [SerializeField] private GameObject actionPanel;
+    [SerializeField] private GameObject cameraActivePanel;
+    [SerializeField] private GameObject cameraScanningPanel;
     [SerializeField] private GameObject finalPanel;
 
     [Header("Start")]
@@ -26,18 +26,12 @@ public sealed class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI dialogueText;
     [SerializeField] private Button nextDialogueButton;
 
-    [Header("Mission")]
-    [SerializeField] private TextMeshProUGUI missionText;
-
-    [Header("Actions")]
-    [SerializeField] private Button deliverObjectButton;
-    [SerializeField] private Button moveToNextLocationButton;
-    [SerializeField] private Button receiveGiftButton;
+    [Header("CameraButtons")]
+    [SerializeField] private Button onARCameraActivateButton;
+    [SerializeField] private Button onARCameraCloseButton;
 
     [Header("Final")]
     [SerializeField] private TextMeshProUGUI finalQuestionText;
-    [SerializeField] private Button yesButton;
-    [SerializeField] private Button noButton;
 
     string playerName = "신입생";
 
@@ -51,19 +45,12 @@ public sealed class UIManager : MonoBehaviour
     {
         HideAll();
 
-        // 시작 화면
-        //Show(startPanel);
-
-        // 버튼 바인딩
         startButton.onClick.AddListener(StartGame);
 
         nameConfirmButton.onClick.AddListener(OnNameConfirm);
         nextDialogueButton.onClick.AddListener(() => StoryManager.Instance.OnNextDialoguePressed());
-        deliverObjectButton.onClick.AddListener(() => StoryManager.Instance.OnDeliverPressed());
-        moveToNextLocationButton.onClick.AddListener(() => StoryManager.Instance.OnMoveNextPressed());
-        receiveGiftButton.onClick.AddListener(() => StoryManager.Instance.OnReceiveGiftPressed());
-        yesButton.onClick.AddListener(() => StoryManager.Instance.OnFinalAnswer(true));
-        noButton.onClick.AddListener(() => StoryManager.Instance.OnFinalAnswer(false));
+        onARCameraActivateButton.onClick.AddListener(() => StoryManager.Instance.OnARCameraActivatePressed());
+        onARCameraCloseButton.onClick.AddListener(() => StoryManager.Instance.OnARCameraClosePressed());
     }
 
     void OnDestroy()
@@ -72,34 +59,21 @@ public sealed class UIManager : MonoBehaviour
         startButton.onClick.RemoveAllListeners();
         nameConfirmButton.onClick.RemoveAllListeners();
         nextDialogueButton.onClick.RemoveAllListeners();
-        deliverObjectButton.onClick.RemoveAllListeners();
-        moveToNextLocationButton.onClick.RemoveAllListeners();
-        receiveGiftButton.onClick.RemoveAllListeners();
-        yesButton.onClick.RemoveAllListeners();
-        noButton.onClick.RemoveAllListeners();
+        onARCameraActivateButton.onClick.RemoveAllListeners();
     }
 
     // ========== Public API ==========
     public void ShowStart()                    { SwitchTo(startPanel); }
     public void ShowNameInput()                { SwitchTo(nameInputPanel); }
+    public void ShowActivateCamera() { SwitchTo(cameraActivePanel); }
+    public void ShowCameraScanning() { SwitchTo(cameraScanningPanel); }
     public void ShowDialogue(string npc, string line)
     {
         SwitchTo(dialoguePanel);
         npcNameText.text = npc;
         dialogueText.text = line;
     }
-    public void ShowMission(string text)
-    {
-        SwitchTo(missionPanel);
-        missionText.text = text;
-    }
-    public void ShowActions(bool showDeliver, bool showMoveNext, bool showGift)
-    {
-        SwitchTo(actionPanel);
-        deliverObjectButton.gameObject.SetActive(showDeliver);
-        moveToNextLocationButton.gameObject.SetActive(showMoveNext);
-        receiveGiftButton.gameObject.SetActive(showGift);
-    }
+    
     public void ShowFinal(string question)
     {
         SwitchTo(finalPanel);
@@ -131,8 +105,8 @@ public sealed class UIManager : MonoBehaviour
         startPanel.SetActive(false);
         nameInputPanel.SetActive(false);
         dialoguePanel.SetActive(false);
-        missionPanel.SetActive(false);
-        actionPanel.SetActive(false);
+        cameraActivePanel.SetActive(false);
+        cameraScanningPanel.SetActive(false);
         finalPanel.SetActive(false);
     }
     static void Show(GameObject go) => go.SetActive(true);
