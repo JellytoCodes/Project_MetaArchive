@@ -11,6 +11,11 @@ public sealed class ScanEntry
     public GameObject prefab;   // 스폰할 캐릭터
     public string npcName = "NPC";  //대화창에 표시할 이름
     [TextArea] public string[] lines;   //대사
+
+    [Header("Spawn Adjust (image-local)")]
+    public Vector3 localOffset = new Vector3(0f, 0f, 0.1f); // 이미지 앞 10cm
+    public Vector3 localEuler;                               // 이미지 기준 회전 보정(도)
+    public float uniformScale = 1f;   
 }
 
 public sealed class StoryManager : MonoBehaviour
@@ -29,7 +34,6 @@ public sealed class StoryManager : MonoBehaviour
     [SerializeField] private List<ScanEntry> scanEntries = new(); // 인스펙터에서 세팅
     [SerializeField] private string waveAnimStateName = "Wave";
     [SerializeField] private float waveCrossfade = 0.1f;
-    [SerializeField] private Vector3 spawnOffset = new Vector3(0f, 0f, 0.1f); // 이미지 앞 10cm
 
     [Header("In-Game Camera")]
     [SerializeField] Camera inGameCamera;
@@ -105,9 +109,9 @@ public sealed class StoryManager : MonoBehaviour
                     $"{_playerName}님 안녕하세요!",
                     "메타버스콘텐츠과에 오신걸 환영합니다!",
                     "저는 오늘 학과 소개를 도와드릴 뚱땅이입니다.",
-                    "우리 과는 탄탄한 커리큘럼으로 단기간에 체계적인 실무 중심의 수업을 통해",
-                    "메타버스콘텐츠 포트폴리오를 제작하고 개인의 역량을 더 빠르게 향상시킬 수 있어요!",
-                    "그러면 무엇을 배우는지 보기위해 전공과목 수업이 진행되는 콘텐츠제작실로 안내할게요!"
+                    "우리 과는 탄탄한 커리큘럼으로 \n단기간에 체계적인 실무 중심의 수업을 통해",
+                    "메타버스콘텐츠 포트폴리오를 제작하고 \n개인의 역량을 더 빠르게 향상시킬 수 있어요!",
+                    "그러면 무엇을 배우는지 보기위해 \n전공과목 수업이 진행되는 콘텐츠제작실로 안내할게요!"
                 });
                 break;
 
@@ -157,19 +161,24 @@ public sealed class StoryManager : MonoBehaviour
     {
         SetStoryState(StoryState.Character_Intro);
 
-        // 1) 스폰
         var go = GetOrSpawn(entry.prefab, entry.imageName);
         var t = go.transform;
 
-        // 이미지 평면 앞쪽으로 오프셋, 카메라를 바라보게 정렬
-        var forward = arCamera ? (t.position - arCamera.transform.position) : img.transform.forward;
-        t.SetPositionAndRotation(
-            img.transform.TransformPoint(spawnOffset),
-            Quaternion.LookRotation(forward, Vector3.up)
-        );
+        var imgTf   = img.transform;
+        var worldPos = imgTf.TransformPoint(entry.localOffset);
+
+        // 이미지의 '위' 축을 기준으로 수평(Yaw)만 카메라를 보게 함
+        Vector3 up = imgTf.up; // 필요 시 imgTf.forward 또는 -imgTf.forward로 교체
+        Vector3 toCam = arCamera ? (arCamera.transform.position - worldPos) : imgTf.forward;
+        Quaternion faceCam = Quaternion.LookRotation(toCam.normalized, Vector3.up);
+        t.SetPositionAndRotation(worldPos, faceCam * Quaternion.Euler(entry.localEuler));
+        
+        // 스케일 보정
+        if (entry.uniformScale > 0f && !Mathf.Approximately(entry.uniformScale, 1f))
+            t.localScale = Vector3.one * entry.uniformScale;
+
         go.SetActive(true);
 
-        // 2) 애니 재생(선택)
         var animator = go.GetComponentInChildren<Animator>();
         if (animator && !string.IsNullOrEmpty(waveAnimStateName))
         {
@@ -182,14 +191,13 @@ public sealed class StoryManager : MonoBehaviour
             yield return new WaitForSeconds(0.8f);
         }
 
-        // 3) 대화 시작
-        if (entry.lines != null && entry.lines.Length > 0)
-            BeginDialogue(entry.npcName, entry.lines);
-        else
-            BeginDialogue(entry.npcName, new[] { "설정된 대사가 없습니다." });
+        BeginDialogue(entry.npcName, (entry.lines != null && entry.lines.Length > 0)
+            ? entry.lines
+            : new[] { "설정된 대사가 없습니다." });
 
         SetStoryState(StoryState.Dialogue_Running);
     }
+
 
     GameObject GetOrSpawn(GameObject prefab, string key)
     {
