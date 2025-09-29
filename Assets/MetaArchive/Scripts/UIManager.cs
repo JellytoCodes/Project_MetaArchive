@@ -145,12 +145,12 @@ public sealed class UIManager : MonoBehaviour
 
     void HideMissionStemp()
     {
-        firstContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
-        secondContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
-        thirdContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
-        ARVRContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
-        metaverseShowRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
-        RestRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
+        firstContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
+        secondContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
+        thirdContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
+        ARVRContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
+        metaverseShowRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
+        RestRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
     }
     static void Show(GameObject go) => go.SetActive(true);
 }
