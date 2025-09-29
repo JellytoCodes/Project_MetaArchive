@@ -23,7 +23,7 @@ MonoBehaviour:
     m_SerializedTextureGuid:
       m_GuidLow: 2590876194367672480
       m_GuidHigh: 14273342195000626664
-    m_Size: {x: 0, y: 0}
+    m_Size: {x: 5, y: 4.119565}
     m_SpecifySize: 0
     m_Name: Dungddangi_Image
     m_Texture: {fileID: 0}

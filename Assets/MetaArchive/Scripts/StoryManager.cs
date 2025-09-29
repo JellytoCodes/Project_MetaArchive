@@ -4,17 +4,19 @@ using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 
+public enum MissionID { M1, M2, M3, M4, M5, M6}
+
 [System.Serializable]
 public sealed class ScanEntry
 {
-    public string imageName;    // Image Library 이름
-    public GameObject prefab;   // 스폰할 캐릭터
-    public string npcName = "NPC";  //대화창에 표시할 이름
-    [TextArea] public string[] lines;   //대사
+    public string imageName;
+    public GameObject prefab;
+    public string npcName = "NPC";
+    [TextArea] public string[] lines;
 
     [Header("Spawn Adjust (image-local)")]
-    public Vector3 localOffset = new Vector3(0f, 0f, 0.1f); // 이미지 앞 10cm
-    public Vector3 localEuler;                               // 이미지 기준 회전 보정(도)
+    public Vector3 localOffset = new Vector3(0f, 0f, 0.1f);
+    public Vector3 localEuler;
     public float uniformScale = 1f;   
 }
 
@@ -31,7 +33,7 @@ public sealed class StoryManager : MonoBehaviour
     [SerializeField] Camera arCamera;
 
     [Header("Scanning Table")]
-    [SerializeField] private List<ScanEntry> scanEntries = new(); // 인스펙터에서 세팅
+    [SerializeField] private List<ScanEntry> scanEntries = new();
     [SerializeField] private string waveAnimStateName = "Wave";
     [SerializeField] private float waveCrossfade = 0.1f;
 
@@ -67,17 +69,7 @@ public sealed class StoryManager : MonoBehaviour
                 _scanMap.Add(e.imageName, e);
         }
     }
-
-    void OnEnable()
-    {
-        if (trackedImageManager) trackedImageManager.trackedImagesChanged += OnTrackedImagesChanged;
-    }
-
-    void OnDisable()
-    {
-        if (trackedImageManager) trackedImageManager.trackedImagesChanged -= OnTrackedImagesChanged;
-    }
-
+    
     void Start()
     {
         SetStoryState(StoryState.Game_Start_Screen);
@@ -107,11 +99,11 @@ public sealed class StoryManager : MonoBehaviour
                 BeginDialogue("뚱땅이", new[]
                 {
                     $"{_playerName}님 안녕하세요!",
-                    "메타버스콘텐츠과에 오신걸 환영합니다!",
-                    "저는 오늘 학과 소개를 도와드릴 뚱땅이입니다.",
+                    "메타버스콘텐츠과에 \n오신걸 환영합니다!",
+                    "저는 오늘 학과 소개를 도와드릴 \n뚱땅이입니다.",
                     "우리 과는 탄탄한 커리큘럼으로 \n단기간에 체계적인 실무 중심의 수업을 통해",
-                    "메타버스콘텐츠 포트폴리오를 제작하고 \n개인의 역량을 더 빠르게 향상시킬 수 있어요!",
-                    "그러면 무엇을 배우는지 보기위해 \n전공과목 수업이 진행되는 콘텐츠제작실로 안내할게요!"
+                    "메타버스콘텐츠 포트폴리오를 \n제작하고 개인의 역량을 더 빠르게 향상시킬 수 있어요!",
+                    "그러면 학과를 돌아다니면서 \n재학생들과 대화를 통해 \n저희 과에 대한 소개를 들어보고 스탬프를 모아와주세요!"
                 });
                 break;
 
@@ -124,9 +116,11 @@ public sealed class StoryManager : MonoBehaviour
                 UIManager.Instance.ShowCameraScanning();
                 SwitchCameraAR(true);
                 break;
-
+            case StoryState.Character_Intro :
+                // 캐릭터 애니메이션 재생
+                break;
             case StoryState.Dialogue_Running:
-                    // TODO : 스폰 위치 조정하기
+                // TODO : 스폰 위치 조정하기
                 break;
         }
     }
@@ -156,15 +150,12 @@ public sealed class StoryManager : MonoBehaviour
         StartCoroutine(PlayCharacterIntroRoutine(img, entry));
     }
 
-    // 코루틴 및 유틸 추가
     IEnumerator PlayCharacterIntroRoutine(ARTrackedImage img, ScanEntry entry)
     {
-        SetStoryState(StoryState.Character_Intro);
-
         var go = GetOrSpawn(entry.prefab, entry.imageName);
         var t = go.transform;
 
-        var imgTf   = img.transform;
+        var imgTf = img.transform;
         var worldPos = imgTf.TransformPoint(entry.localOffset);
 
         // 이미지의 '위' 축을 기준으로 수평(Yaw)만 카메라를 보게 함
@@ -172,13 +163,19 @@ public sealed class StoryManager : MonoBehaviour
         Vector3 toCam = arCamera ? (arCamera.transform.position - worldPos) : imgTf.forward;
         Quaternion faceCam = Quaternion.LookRotation(toCam.normalized, Vector3.up);
         t.SetPositionAndRotation(worldPos, faceCam * Quaternion.Euler(entry.localEuler));
-        
+
         // 스케일 보정
         if (entry.uniformScale > 0f && !Mathf.Approximately(entry.uniformScale, 1f))
             t.localScale = Vector3.one * entry.uniformScale;
 
         go.SetActive(true);
 
+        SetStoryState(StoryState.Character_Intro);
+
+        BeginDialogue(entry.npcName, (entry.lines != null && entry.lines.Length > 0) ? entry.lines : new[] { "설정된 대사가 없습니다." });
+
+        SetStoryState(StoryState.Dialogue_Running);
+        
         var animator = go.GetComponentInChildren<Animator>();
         if (animator && !string.IsNullOrEmpty(waveAnimStateName))
         {
@@ -190,14 +187,7 @@ public sealed class StoryManager : MonoBehaviour
         {
             yield return new WaitForSeconds(0.8f);
         }
-
-        BeginDialogue(entry.npcName, (entry.lines != null && entry.lines.Length > 0)
-            ? entry.lines
-            : new[] { "설정된 대사가 없습니다." });
-
-        SetStoryState(StoryState.Dialogue_Running);
     }
-
 
     GameObject GetOrSpawn(GameObject prefab, string key)
     {

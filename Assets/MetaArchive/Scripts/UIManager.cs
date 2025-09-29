@@ -33,6 +33,14 @@ public sealed class UIManager : MonoBehaviour
     [Header("Final")]
     [SerializeField] private TextMeshProUGUI finalQuestionText;
 
+    [Header("Mission Stamp")]
+    [SerializeField] private Image firstContentRoomImage;
+    [SerializeField] private Image secondContentRoomImage;
+    [SerializeField] private Image thirdContentRoomImage;
+
+    [SerializeField] private Image ARVRContentRoomImage;
+    [SerializeField] private Image metaverseShowRoomImage;
+    [SerializeField] private Image RestRoomImage;
     string playerName = "신입생";
 
     void Awake()
@@ -44,7 +52,7 @@ public sealed class UIManager : MonoBehaviour
     void Start()
     {
         HideAll();
-
+        HideMissionStemp();
         startButton.onClick.AddListener(StartGame);
 
         nameConfirmButton.onClick.AddListener(OnNameConfirm);
@@ -63,10 +71,10 @@ public sealed class UIManager : MonoBehaviour
     }
 
     // ========== Public API ==========
-    public void ShowStart()                    { SwitchTo(startPanel); }
-    public void ShowNameInput()                { SwitchTo(nameInputPanel); }
-    public void ShowActivateCamera() { SwitchTo(cameraActivePanel); }
-    public void ShowCameraScanning() { SwitchTo(cameraScanningPanel); }
+    public void ShowStart()             { SwitchTo(startPanel); }
+    public void ShowNameInput()         { SwitchTo(nameInputPanel); }
+    public void ShowActivateCamera()    { SwitchTo(cameraActivePanel); }
+    public void ShowCameraScanning()    { SwitchTo(cameraScanningPanel); }
     public void ShowDialogue(string npc, string line)
     {
         SwitchTo(dialoguePanel);
@@ -80,6 +88,31 @@ public sealed class UIManager : MonoBehaviour
         finalQuestionText.text = question;
     }
     public string GetPlayerName() => playerName;
+
+    public void ShowMissionStemp(MissionID CurrentID)
+    {
+        switch (CurrentID)
+        {
+            case MissionID.M1:
+            firstContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+                break;
+            case MissionID.M2:
+            secondContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+                break;
+            case MissionID.M3:
+            thirdContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+                break;
+            case MissionID.M4:
+            ARVRContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+                break;
+            case MissionID.M5:
+            metaverseShowRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+                break;
+            case MissionID.M6:
+            RestRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+                break;
+        }
+    }
 
     // ========== Helpers ==========
     void OnNameConfirm()
@@ -108,6 +141,16 @@ public sealed class UIManager : MonoBehaviour
         cameraActivePanel.SetActive(false);
         cameraScanningPanel.SetActive(false);
         finalPanel.SetActive(false);
+    }
+
+    void HideMissionStemp()
+    {
+        firstContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
+        secondContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
+        thirdContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
+        ARVRContentRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
+        metaverseShowRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
+        RestRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.3f);
     }
     static void Show(GameObject go) => go.SetActive(true);
 }
