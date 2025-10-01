@@ -153,4 +153,9 @@ public sealed class UIManager : MonoBehaviour
         RestRoomImage.color = new Color(1.0f, 1.0f, 1.0f, 0.0f);
     }
     static void Show(GameObject go) => go.SetActive(true);
+    
+    public void HideDialogue()
+    {
+        if (dialoguePanel) dialoguePanel.SetActive(false);
+    }
 }

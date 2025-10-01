@@ -10,7 +10,7 @@ public sealed class AnimPlayer : MonoBehaviour
     AnimationPlayableOutput _output;
     AnimationClipPlayable _current;
     bool _ready;
-
+    
     void Awake()
     {
         _anim = GetComponentInChildren<Animator>() ?? gameObject.AddComponent<Animator>();
@@ -43,14 +43,17 @@ public sealed class AnimPlayer : MonoBehaviour
         _output.SetSourcePlayable(_current);
         _graph.Play();
 
-        double duration = clip.length;              // 초
+        double duration = clip.length;
         double t0 = Time.realtimeSinceStartupAsDouble;
         const double TIMEOUT = 10.0;
 
         while (_current.IsValid() && _current.GetTime() < duration)
         {
             if (!_graph.IsPlaying()) _graph.Play();
-            if (Time.realtimeSinceStartupAsDouble - t0 > TIMEOUT) break;
+            if (Time.realtimeSinceStartupAsDouble - t0 > TIMEOUT)
+            {
+                break;
+            }
             yield return null;
         }
         onEnd?.Invoke();
