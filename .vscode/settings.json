@@ -66,5 +66,5 @@
     "explorer.fileNesting.patterns": {
         "*.sln": "*.csproj"
     },
-    "dotnet.defaultSolution": "Project_MetaArchive.sln"
+    "dotnet.defaultSolution": "AR_MetaArchive.sln"
 }

@@ -91,7 +91,7 @@ public sealed class StoryManager : MonoBehaviour
 
     public void SetStoryState(StoryState next)
     {
-        var sceneMascot = FindObjectOfType<SceneAnimPlayer>();
+        
         CurrentStoryState = next;
         switch (next)
         {
@@ -108,8 +108,6 @@ public sealed class StoryManager : MonoBehaviour
             case StoryState.Intro_Meet_Dungddangi:
                 SwitchCameraAR(false);
                 _isCameraStandby = true;
-                
-                if (sceneMascot) StartCoroutine(sceneMascot.PlayIntroThenLoop());
 
                 BeginDialogue("뚱땅이", new[]
                 {
@@ -132,10 +130,6 @@ public sealed class StoryManager : MonoBehaviour
                 SwitchCameraAR(true);
                 break;
 
-            case StoryState.Character_Intro:
-                
-                break;
-
             case StoryState.Dialogue_Running:
                 
                 break;
@@ -143,7 +137,7 @@ public sealed class StoryManager : MonoBehaviour
     }
 
     public void OnNextDialoguePressed() => AdvanceDialogue();
-    public void OnReceiveGiftPressed() => SetStoryState(StoryState.Gift_Received);
+    //public void OnReceiveGiftPressed() => SetStoryState(StoryState.Gift_Received);
     public void OnARCameraClosePressed() => SetStoryState(StoryState.Camera_Standby);
     public void OnFinalAnswer(bool yes) => SetStoryState(StoryState.Game_Ended);
     public void OnARCameraActivatePressed() => SetStoryState(StoryState.Camera_Scanning);
@@ -227,7 +221,7 @@ public sealed class StoryManager : MonoBehaviour
                     break;
 
                 case StoryState.Ending_With_Dungddangi:
-                    SetStoryState(StoryState.Give_Gift_Prompt);
+                    SetStoryState(StoryState.Game_Ended);
                     break;
             }
             return;
@@ -258,7 +252,13 @@ public sealed class StoryManager : MonoBehaviour
 
         // 스폰 정리 후 스탠바이로 전환(이때 카메라 종료)
         CleanupCurrentSpawn(true);
-        SetStoryState(StoryState.Camera_Standby);
+        if (_missionDone[MissionID.M1] == true && _missionDone[MissionID.M2] == true &&
+            _missionDone[MissionID.M3] == true && _missionDone[MissionID.M4] == true &&
+            _missionDone[MissionID.M5] == true && _missionDone[MissionID.M6] == true)
+        {
+            SetStoryState(StoryState.Ending_With_Dungddangi);
+        }
+        else SetStoryState(StoryState.Camera_Standby);
     }
 
     void CleanupCurrentSpawn(bool destroy)
