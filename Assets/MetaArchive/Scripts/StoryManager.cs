@@ -111,17 +111,21 @@ public sealed class StoryManager : MonoBehaviour
 
                 BeginDialogue("뚱땅이", new[]
                 {
-                    $"{_playerName}님 안녕하세요!",
-                    "메타버스콘텐츠과에 \n오신걸 환영합니다!",
-                    "저는 오늘 학과 소개를 도와드릴 \n뚱땅이입니다.",
-                    "우리 과는 탄탄한 커리큘럼으로 \n단기간에 체계적인 실무 중심의 수업을 통해",
-                    "메타버스콘텐츠 포트폴리오를 \n제작하고 개인의 역량을 더 빠르게 향상시킬 수 있어요!",
+                    $"{_playerName}님 안녕하세요! \n메타버스콘텐츠과에 오신걸 환영합니다!",
+                    "저는 오늘 학과를 안내할 뚱땅이입니다.",
+                    "우리 과는 탄탄한 커리큘럼으로 단기간 체계적인\n 실무 중심의 수업을 통해 메타버스콘텐츠 포트폴리오를 제작하고 \n개인의 역량을 더 빠르게 향상시킬 수 있답니다!",
                     "그러면 학과를 돌아다니면서 \n재학생들과 대화를 통해 \n저희 과에 대한 소개를 들어보고 스탬프를 모아와주세요!"
                 });
                 break;
 
             case StoryState.Camera_Standby:
                 SwitchCameraAR(false);
+                if (_missionDone[MissionID.M1] == true && _missionDone[MissionID.M2] == true &&
+                    _missionDone[MissionID.M3] == true && _missionDone[MissionID.M4] == true &&
+                    _missionDone[MissionID.M5] == true && _missionDone[MissionID.M6] == true)
+                {
+                    UIManager.Instance.SwapCameraButton();
+                }
                 UIManager.Instance.ShowActivateCamera();
                 break;
 
@@ -133,13 +137,16 @@ public sealed class StoryManager : MonoBehaviour
             case StoryState.Dialogue_Running:
                 
                 break;
+            
+            case StoryState.Game_Ended:
+                SwitchCameraAR(true);
+                break;
         }
     }
 
     public void OnNextDialoguePressed() => AdvanceDialogue();
-    //public void OnReceiveGiftPressed() => SetStoryState(StoryState.Gift_Received);
     public void OnARCameraClosePressed() => SetStoryState(StoryState.Camera_Standby);
-    public void OnFinalAnswer(bool yes) => SetStoryState(StoryState.Game_Ended);
+    public void StempSubmitPressed() => SetStoryState(StoryState.Game_Ended);
     public void OnARCameraActivatePressed() => SetStoryState(StoryState.Camera_Scanning);
 
     // ===== AR =====
@@ -217,7 +224,7 @@ public sealed class StoryManager : MonoBehaviour
                     break;
 
                 case StoryState.Dialogue_Running:
-                    StartCoroutine(CoFarewellThenReturn()); // 작별 대기 → 정리 → 스탠바이
+                    StartCoroutine(CoFarewellThenReturn());
                     break;
 
                 case StoryState.Ending_With_Dungddangi:
@@ -252,13 +259,8 @@ public sealed class StoryManager : MonoBehaviour
 
         // 스폰 정리 후 스탠바이로 전환(이때 카메라 종료)
         CleanupCurrentSpawn(true);
-        if (_missionDone[MissionID.M1] == true && _missionDone[MissionID.M2] == true &&
-            _missionDone[MissionID.M3] == true && _missionDone[MissionID.M4] == true &&
-            _missionDone[MissionID.M5] == true && _missionDone[MissionID.M6] == true)
-        {
-            SetStoryState(StoryState.Ending_With_Dungddangi);
-        }
-        else SetStoryState(StoryState.Camera_Standby);
+
+        SetStoryState(StoryState.Camera_Standby);
     }
 
     void CleanupCurrentSpawn(bool destroy)

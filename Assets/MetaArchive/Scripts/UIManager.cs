@@ -29,18 +29,16 @@ public sealed class UIManager : MonoBehaviour
     [Header("CameraButtons")]
     [SerializeField] private Button onARCameraActivateButton;
     [SerializeField] private Button onARCameraCloseButton;
-
-    [Header("Final")]
-    [SerializeField] private TextMeshProUGUI finalQuestionText;
-
+    [SerializeField] private Button stempSubmitButton;
+    
     [Header("Mission Stamp")]
     [SerializeField] private Image firstContentRoomImage;
     [SerializeField] private Image secondContentRoomImage;
     [SerializeField] private Image thirdContentRoomImage;
-
     [SerializeField] private Image ARVRContentRoomImage;
     [SerializeField] private Image metaverseShowRoomImage;
     [SerializeField] private Image RestRoomImage;
+    
     string playerName = "신입생";
 
     void Awake()
@@ -59,6 +57,7 @@ public sealed class UIManager : MonoBehaviour
         nextDialogueButton.onClick.AddListener(() => StoryManager.Instance.OnNextDialoguePressed());
         onARCameraActivateButton.onClick.AddListener(() => StoryManager.Instance.OnARCameraActivatePressed());
         onARCameraCloseButton.onClick.AddListener(() => StoryManager.Instance.OnARCameraClosePressed());
+        stempSubmitButton.onClick.AddListener(() => StoryManager.Instance.StempSubmitPressed());
     }
 
     void OnDestroy()
@@ -82,11 +81,6 @@ public sealed class UIManager : MonoBehaviour
         dialogueText.text = line;
     }
     
-    public void ShowFinal(string question)
-    {
-        SwitchTo(finalPanel);
-        finalQuestionText.text = question;
-    }
     public string GetPlayerName() => playerName;
 
     public void ShowMissionStemp(MissionID CurrentID)
@@ -125,6 +119,7 @@ public sealed class UIManager : MonoBehaviour
     void StartGame()
     {
         StoryManager.Instance.SetStoryState(StoryState.Player_Name_Input);
+        if(stempSubmitButton) stempSubmitButton.gameObject.SetActive(false);
     }
 
     void SwitchTo(GameObject target)
@@ -157,5 +152,11 @@ public sealed class UIManager : MonoBehaviour
     public void HideDialogue()
     {
         if (dialoguePanel) dialoguePanel.SetActive(false);
+    }
+
+    public void SwapCameraButton()
+    {
+        if(onARCameraActivateButton) onARCameraActivateButton.gameObject.SetActive(false);
+        if(stempSubmitButton) stempSubmitButton.gameObject.SetActive(true);
     }
 }
