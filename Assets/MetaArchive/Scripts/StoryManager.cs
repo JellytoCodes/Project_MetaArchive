@@ -4,7 +4,8 @@ using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 
-public enum MissionID { M1, M2, M3, M4, M5, M6}
+public enum MissionID { M1, M2, M3, M4, M5, M6 }
+public enum CameraState { Intro, OnGoing, Outro }
 
 [System.Serializable]
 public sealed class ScanEntry
@@ -32,28 +33,32 @@ public sealed class StoryManager : MonoBehaviour
     [SerializeField] Camera arCamera;
 
     [Header("Scanning Table")]
-    [SerializeField] private List<ScanEntry> scanEntries = new();
+    [SerializeField] List<ScanEntry> scanEntries = new();
 
     [Header("In-Game Camera")]
     [SerializeField] Camera inGameCamera;
     [SerializeField] Camera inGameStandby;
-    
+    [SerializeField] Camera inGameEnding;
+
+    // runtime
     readonly Dictionary<string, GameObject> _spawned = new();
+    readonly HashSet<string> _spawnLocked = new();                 // 이미지별 1회 스폰 가드
     Dictionary<string, ScanEntry> _scanMap;
+    readonly Dictionary<MissionID, bool> _missionDone = new();
     Queue<string> _dialogueQueue;
 
     string _playerName = "플레이어";
     string _dialogueName = "뚱땅이";
     AudioListener _arAL, _gameAL;
 
-    // === Mission / Runtime ===
-    Dictionary<MissionID, bool> _missionDone = new();
     MissionID _currentMission;
-    ScanEntry _currentEntry;          // 현재 엔트리 캐시
+    ScanEntry _currentEntry;
     GameObject _currentActor;
     Animator _currentAnimator;
     bool _introPlaying;
-    bool _isCameraStandby = false;
+    CameraState cameraState = CameraState.Intro;
+
+    // ===== Unity =====
     void OnEnable()
     {
         if (trackedImageManager) trackedImageManager.trackedImagesChanged += OnTrackedImagesChanged;
@@ -76,12 +81,10 @@ public sealed class StoryManager : MonoBehaviour
 
         _scanMap = new Dictionary<string, ScanEntry>();
         foreach (var e in scanEntries)
-        {
             if (e != null && !string.IsNullOrWhiteSpace(e.imageName) && !_scanMap.ContainsKey(e.imageName))
                 _scanMap.Add(e.imageName, e);
-        }
-        foreach (MissionID id in System.Enum.GetValues(typeof(MissionID)))
-            _missionDone[id] = false;
+
+        foreach (MissionID id in System.Enum.GetValues(typeof(MissionID))) _missionDone[id] = false;
     }
 
     void Start() => SetStoryState(StoryState.Game_Start_Screen);
@@ -91,8 +94,8 @@ public sealed class StoryManager : MonoBehaviour
 
     public void SetStoryState(StoryState next)
     {
-        
         CurrentStoryState = next;
+
         switch (next)
         {
             case StoryState.Game_Start_Screen:
@@ -107,25 +110,22 @@ public sealed class StoryManager : MonoBehaviour
 
             case StoryState.Intro_Meet_Dungddangi:
                 SwitchCameraAR(false);
-                _isCameraStandby = true;
-
                 BeginDialogue("뚱땅이", new[]
                 {
                     $"{_playerName}님 안녕하세요! \n메타버스콘텐츠과에 오신걸 환영합니다!",
                     "저는 오늘 학과를 안내할 뚱땅이입니다.",
-                    "우리 과는 탄탄한 커리큘럼으로 단기간 체계적인\n 실무 중심의 수업을 통해 메타버스콘텐츠 포트폴리오를 제작하고 \n개인의 역량을 더 빠르게 향상시킬 수 있답니다!",
-                    "그러면 학과를 돌아다니면서 \n재학생들과 대화를 통해 \n저희 과에 대한 소개를 들어보고 스탬프를 모아와주세요!"
+                    "우리 과는 탄탄한 커리큘럼으로 단기간 \n체계적인 실무 중심의 수업을 통해 \n다양한 메타버스콘텐츠를 제작하고 \n개인의 역량을 더 빠르게 향상시킬 수 있답니다!",
+                    "그러면 학과를 돌아다니면서 \n재학생들과의 대화를 통해 \n저희 과에 대한 소개를 들어보고 스탬프를 모아와주세요!"
                 });
                 break;
 
             case StoryState.Camera_Standby:
+                cameraState = CameraState.OnGoing;
                 SwitchCameraAR(false);
-                if (_missionDone[MissionID.M1] == true && _missionDone[MissionID.M2] == true &&
-                    _missionDone[MissionID.M3] == true && _missionDone[MissionID.M4] == true &&
-                    _missionDone[MissionID.M5] == true && _missionDone[MissionID.M6] == true)
-                {
+                if (_missionDone[MissionID.M1] && _missionDone[MissionID.M2] &&
+                    _missionDone[MissionID.M3] && _missionDone[MissionID.M4] &&
+                    _missionDone[MissionID.M5] && _missionDone[MissionID.M6])
                     UIManager.Instance.SwapCameraButton();
-                }
                 UIManager.Instance.ShowActivateCamera();
                 break;
 
@@ -135,11 +135,12 @@ public sealed class StoryManager : MonoBehaviour
                 break;
 
             case StoryState.Dialogue_Running:
-                
                 break;
-            
+
             case StoryState.Game_Ended:
-                SwitchCameraAR(true);
+                cameraState = CameraState.Outro;
+                SwitchCameraAR(false);
+                BeginDialogue("뚱땅이", new[] { $"{_playerName}님 수고하셨습니다!" });
                 break;
         }
     }
@@ -153,9 +154,12 @@ public sealed class StoryManager : MonoBehaviour
     void OnTrackedImagesChanged(ARTrackedImagesChangedEventArgs args)
     {
         foreach (var a in args.added)   TryHandleTracked(a);
-        foreach (var u in args.updated) TryHandleTracked(u);
+        foreach (var u in args.updated) TryHandleTracked(u); // 업데이트도 처리. 락으로 중복 방지.
         foreach (var r in args.removed)
+        {
+            _spawnLocked.Remove(r.referenceImage.name);
             if (_spawned.TryGetValue(r.referenceImage.name, out var go) && go) go.SetActive(false);
+        }
     }
 
     void TryHandleTracked(ARTrackedImage img)
@@ -165,29 +169,52 @@ public sealed class StoryManager : MonoBehaviour
         if (img.trackingState != TrackingState.Tracking) return;
 
         var key = img.referenceImage.name;
+        if (_spawnLocked.Contains(key)) return;
         if (!_scanMap.TryGetValue(key, out var entry) || entry.prefab == null) return;
-
-        // 완료한 미션은 무시
         if (_missionDone.TryGetValue(entry.mission, out var done) && done) return;
 
+        _spawnLocked.Add(key);
         _currentMission = entry.mission;
         _currentEntry   = entry;
         _introPlaying   = true;
-        StartCoroutine(PlayCharacterIntroRoutine(img, entry));
+        StartCoroutine(PlayCharacterIntroRoutine(img, entry, key));
     }
 
-    IEnumerator PlayCharacterIntroRoutine(ARTrackedImage img, ScanEntry entry)
+    // ===== Spawn & Flow =====
+    IEnumerator PlayCharacterIntroRoutine(ARTrackedImage img, ScanEntry entry, string key)
     {
+        // 1) 이미지 오브젝트에 ARAnchor 보장(6.2 안전)
+        var anchor = img.GetComponent<ARAnchor>();
+        if (!anchor) anchor = img.gameObject.AddComponent<ARAnchor>();
+        var parent = anchor.transform;
+
+        // 2) 스폰: 부모=앵커, 로컬 0 고정
         _currentActor = GetOrSpawn(entry.prefab, entry.imageName);
-        _currentActor.transform.SetPositionAndRotation(img.transform.position, img.transform.rotation);
+        var t = _currentActor.transform;
+        t.SetParent(parent, false);
+        t.localPosition = Vector3.zero;
+        t.localRotation = Quaternion.identity;
+        t.localScale    = Vector3.one;
         _currentActor.SetActive(true);
 
-        _currentAnimator = _currentActor.GetComponentInChildren<Animator>();
+        // 3) 이동 유발자 차단
+        var anim = _currentActor.GetComponentInChildren<Animator>(true);
+        if (anim != null) anim.applyRootMotion = false;
+        var rb = _currentActor.GetComponentInChildren<Rigidbody>(true);
+        if (rb != null) { rb.isKinematic = true; rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
+        var cc = _currentActor.GetComponentInChildren<CharacterController>(true);
+        if (cc != null) cc.enabled = false;
+
+        // 4) 초기 3프레임 재설정
+        for (int i = 0; i < 3; i++) { t.localPosition = Vector3.zero; t.localRotation = Quaternion.identity; yield return null; }
+
+        _currentAnimator = anim;
         var ap = _currentActor.GetComponentInChildren<AnimPlayer>() ?? _currentActor.AddComponent<AnimPlayer>();
-        
+
+        // 5) 애니 + 대화
         if (entry.encounterClip) yield return ap.PlayOnce(entry.encounterClip);
-        if (entry.talkLoopClip) ap.PlayLoop(entry.talkLoopClip);
-        
+        if (entry.talkLoopClip)  ap.PlayLoop(entry.talkLoopClip);
+
         BeginDialogue(entry.npcName, entry.lines);
         SetStoryState(StoryState.Dialogue_Running);
 
@@ -219,7 +246,8 @@ public sealed class StoryManager : MonoBehaviour
             switch (CurrentStoryState)
             {
                 case StoryState.Intro_Meet_Dungddangi:
-                    if(inGameCamera) inGameCamera.gameObject.SetActive(false);
+                    if (inGameCamera) inGameCamera.gameObject.SetActive(false);
+                    if (inGameEnding) inGameEnding.gameObject.SetActive(false);
                     SetStoryState(StoryState.Camera_Standby);
                     break;
 
@@ -227,7 +255,7 @@ public sealed class StoryManager : MonoBehaviour
                     StartCoroutine(CoFarewellThenReturn());
                     break;
 
-                case StoryState.Ending_With_Dungddangi:
+                case StoryState.Game_Ended:
                     SetStoryState(StoryState.Game_Ended);
                     break;
             }
@@ -246,20 +274,19 @@ public sealed class StoryManager : MonoBehaviour
 
     IEnumerator CoFarewellThenReturn()
     {
-        // 다이얼로그 가림. AR 카메라는 유지.
         UIManager.Instance.HideDialogue();
 
         var ap = _currentActor ? _currentActor.GetComponentInChildren<AnimPlayer>() : null;
         if (ap != null && _currentEntry != null && _currentEntry.farewellClip)
             yield return ap.PlayOnce(_currentEntry.farewellClip);
 
-        // 미션 완료 마킹 및 UI
         _missionDone[_currentMission] = true;
         UIManager.Instance.ShowMissionStemp(_currentMission);
 
-        // 스폰 정리 후 스탠바이로 전환(이때 카메라 종료)
-        CleanupCurrentSpawn(true);
+        // 같은 이미지를 다시 쓰게 하려면 락 해제
+        if (_currentEntry != null) _spawnLocked.Remove(_currentEntry.imageName);
 
+        CleanupCurrentSpawn(true);
         SetStoryState(StoryState.Camera_Standby);
     }
 
@@ -267,7 +294,8 @@ public sealed class StoryManager : MonoBehaviour
     {
         if (_currentActor)
         {
-            if (destroy) Destroy(_currentActor); else _currentActor.SetActive(false);
+            if (destroy) Destroy(_currentActor);
+            else _currentActor.SetActive(false);
         }
         _currentActor = null;
         _currentAnimator = null;
@@ -278,18 +306,26 @@ public sealed class StoryManager : MonoBehaviour
     void SwitchCameraAR(bool on)
     {
         if (arCamera) arCamera.gameObject.SetActive(on);
-        
-        if (inGameCamera && !_isCameraStandby)
+
+        switch (cameraState)
         {
-            inGameCamera.gameObject.SetActive(!on);
+            case CameraState.Intro:
+                if (inGameCamera) inGameCamera.gameObject.SetActive(!on);
+                break;
+            case CameraState.OnGoing:
+                if (inGameStandby) inGameStandby.gameObject.SetActive(!on);
+                break;
+            case CameraState.Outro:
+                if (inGameStandby) inGameStandby.gameObject.SetActive(false);
+                if (inGameEnding)  inGameEnding.gameObject.SetActive(!on);
+                break;
         }
-        if(inGameStandby && _isCameraStandby) inGameStandby.gameObject.SetActive(!on);
 
         if (_arAL) _arAL.enabled = on;
         if (_gameAL) _gameAL.enabled = !on;
 
-        if (arSession) arSession.enabled = on;
-        if (arBackground) arBackground.enabled = on;
+        if (arSession)     arSession.enabled = on;
+        if (arBackground)  arBackground.enabled = on;
         if (trackedImageManager) trackedImageManager.enabled = on && CurrentStoryState == StoryState.Camera_Scanning;
     }
 }

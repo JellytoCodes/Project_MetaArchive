@@ -6,7 +6,7 @@ public enum StoryState
     Intro_Meet_Dungddangi,
 
     // 마무리
-    Ending_With_Dungddangi,
+    Gift_Box,
     Game_Ended,
 
     Camera_Standby, // 카메라 켜기 UI 노출
