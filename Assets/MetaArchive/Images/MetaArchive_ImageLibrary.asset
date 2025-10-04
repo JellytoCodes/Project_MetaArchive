@@ -23,7 +23,7 @@ MonoBehaviour:
     m_SerializedTextureGuid:
       m_GuidLow: 13989400836332758760
       m_GuidHigh: 3186577366676935656
-    m_Size: {x: 1.1, y: 1.5559678}
+    m_Size: {x: 0.2, y: 0.28290322}
     m_SpecifySize: 1
     m_Name: Unity
     m_Texture: {fileID: 0}
@@ -33,7 +33,7 @@ MonoBehaviour:
     m_SerializedTextureGuid:
       m_GuidLow: 18177916959243205093
       m_GuidHigh: 13684946843153910362
-    m_Size: {x: 1.1, y: 1.5559678}
+    m_Size: {x: 0.2, y: 0.28290322}
     m_SpecifySize: 1
     m_Name: Blender
     m_Texture: {fileID: 0}
@@ -43,8 +43,8 @@ MonoBehaviour:
     m_SerializedTextureGuid:
       m_GuidLow: 18267944220373847246
       m_GuidHigh: 18325704069885669721
-    m_Size: {x: 1.1, y: 1.5559678}
-    m_SpecifySize: 1
+    m_Size: {x: 0.05, y: 0.070725806}
+    m_SpecifySize: 0
     m_Name: PrimierPro
     m_Texture: {fileID: 0}
   - m_SerializedGuid:
@@ -53,7 +53,7 @@ MonoBehaviour:
     m_SerializedTextureGuid:
       m_GuidLow: 15971033058165007137
       m_GuidHigh: 8187148475027215563
-    m_Size: {x: 1.1, y: 1.5559678}
+    m_Size: {x: 0.2, y: 0.28290322}
     m_SpecifySize: 1
     m_Name: AfterEffect
     m_Texture: {fileID: 0}
@@ -63,7 +63,7 @@ MonoBehaviour:
     m_SerializedTextureGuid:
       m_GuidLow: 17385292052382122771
       m_GuidHigh: 10200172092840242250
-    m_Size: {x: 1.1, y: 1.5559678}
+    m_Size: {x: 0.2, y: 0.28290322}
     m_SpecifySize: 1
     m_Name: UnrealEngine
     m_Texture: {fileID: 0}
@@ -73,7 +73,7 @@ MonoBehaviour:
     m_SerializedTextureGuid:
       m_GuidLow: 11462942006847718890
       m_GuidHigh: 12336506521781978363
-    m_Size: {x: 1.1, y: 1.5559678}
+    m_Size: {x: 0.2, y: 0.28290322}
     m_SpecifySize: 1
     m_Name: 3dsMax
     m_Texture: {fileID: 0}
