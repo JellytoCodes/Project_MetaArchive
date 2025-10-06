@@ -5,7 +5,7 @@ using System.Collections;
 
 public sealed class UIManager : MonoBehaviour
 {
-    public static UIManager Instance { get; private set; }
+    public static UIManager instance { get; private set; }
 
     [Header("Panels")]
     [SerializeField] private GameObject startPanel;
@@ -42,13 +42,33 @@ public sealed class UIManager : MonoBehaviour
     
     [Header("Fade (Image)")]
     [SerializeField] private Image fadeImage;      // 풀스크린 검정 이미지
-    [SerializeField] private float defaultFadeDur = 0.35f;
+
+    Coroutine _fadeCo;
     
     string playerName = "신입생";
     void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-        Instance = this;
+        if (instance != null && instance != this) { Destroy(gameObject); return; }
+        instance = this;
+        
+        // 항상 검정으로 고정
+        if (fadeImage)
+        {
+            var c = fadeImage.color;
+            fadeImage.color = new Color(0f, 0f, 0f, c.a);
+            fadeImage.raycastTarget = c.a > 0.001f;
+            
+            // 최상단 보장
+            var canvas = fadeImage.GetComponentInParent<Canvas>(true);
+            if (canvas)
+            {
+                canvas.overrideSorting = true;
+                canvas.sortingOrder = 32767;
+            }
+            
+            fadeImage.gameObject.SetActive(true); // 비활성로 안 보이는 문제 방지
+            fadeImage.enabled = true;
+        }
     }
 
     void Start()
@@ -58,18 +78,10 @@ public sealed class UIManager : MonoBehaviour
         startButton.onClick.AddListener(StartGame);
 
         nameConfirmButton.onClick.AddListener(OnNameConfirm);
-        nextDialogueButton.onClick.AddListener(() => StoryManager.Instance.OnNextDialoguePressed());
-        onARCameraActivateButton.onClick.AddListener(() => StoryManager.Instance.OnARCameraActivatePressed());
-        onARCameraCloseButton.onClick.AddListener(() => StoryManager.Instance.OnARCameraClosePressed());
-        stempSubmitButton.onClick.AddListener(() => StoryManager.Instance.StempSubmitPressed());
-        
-        if (fadeImage)
-        {
-            var c = fadeImage.color; 
-            c.a = 0f; 
-            fadeImage.color = c;
-            fadeImage.raycastTarget = false; // 평소 입력 통과
-        }
+        nextDialogueButton.onClick.AddListener(() => StoryManager.instance.OnNextDialoguePressed());
+        onARCameraActivateButton.onClick.AddListener(() => StoryManager.instance.OnARCameraActivatePressed());
+        onARCameraCloseButton.onClick.AddListener(() => StoryManager.instance.OnARCameraClosePressed());
+        stempSubmitButton.onClick.AddListener(() => StoryManager.instance.StempSubmitPressed());
     }
 
     void OnDestroy()
@@ -96,7 +108,7 @@ public sealed class UIManager : MonoBehaviour
     
     public string GetPlayerName() => playerName;
 
-    public void ShowMissionStemp(MissionID CurrentID)
+    public void ShowMissionStamp(MissionID CurrentID)
     {
         switch (CurrentID)
         {
@@ -121,47 +133,67 @@ public sealed class UIManager : MonoBehaviour
         }
     }
     
-    public IEnumerator FadeOutCo(float dur = -1f) => CoFade(1f, dur < 0 ? defaultFadeDur : dur);
-    public IEnumerator FadeInCo (float dur = -1f) => CoFade(0f, dur < 0 ? defaultFadeDur : dur);
-    
-    IEnumerator CoFade(float targetA, float dur)
+    public void SetFadeInstant(float a)
     {
-        if (!fadeImage) yield break;
+        if (!fadeImage) return;
+        a = Mathf.Clamp01(a);
+        fadeImage.color = new Color(0f, 0f, 0f, a);
+        fadeImage.raycastTarget = a > 0.001f;
+    }
 
-        fadeImage.raycastTarget = true; // 전환 중 입력 차단
-        float startA = fadeImage.color.a;
+    public Coroutine FadeTo(float targetA, float duration)
+    {
+        if (!fadeImage) return null;
+        if (_fadeCo != null) StopCoroutine(_fadeCo);
+        targetA = Mathf.Clamp01(targetA);
+        duration = Mathf.Max(0f, duration);
+        _fadeCo = StartCoroutine(FadeCo(targetA, duration));
+        return _fadeCo;
+    }
+    public Coroutine FadeOut(float dur) => FadeTo(1f, dur);
+    public Coroutine FadeIn (float dur) => FadeTo(0f, dur);
+
+    System.Collections.IEnumerator FadeCo(float targetA, float dur)
+    {
+        fadeImage.gameObject.SetActive(true);
+        fadeImage.enabled = true;
+
+        Color start = fadeImage.color;                 // RGB는 이미 (0,0,0)
+        Color end   = new Color(0f, 0f, 0f, targetA);
+        fadeImage.raycastTarget = true;
+
+        if (dur <= 0f)
+        {
+            fadeImage.color = end;
+            fadeImage.raycastTarget = targetA > 0.001f;
+            _fadeCo = null;
+            yield break;
+        }
+
         float t = 0f;
-
         while (t < dur)
         {
             t += Time.unscaledDeltaTime;
-            float a = Mathf.Lerp(startA, targetA, t / dur);
-            var c = fadeImage.color; 
-            c.a = a; 
-            fadeImage.color = c;
+            float k = t / dur;
+            fadeImage.color = Color.Lerp(start, end, k);
             yield return null;
         }
-        {
-            var c = fadeImage.color; 
-            c.a = targetA; 
-            fadeImage.color = c;
-        }
-
-        if (Mathf.Approximately(targetA, 0f))
-            fadeImage.raycastTarget = false;
+        fadeImage.color = end;
+        fadeImage.raycastTarget = targetA > 0.001f;
+        _fadeCo = null;
     }
 
     // ========== Helpers ==========
     void OnNameConfirm()
     {
         playerName = string.IsNullOrWhiteSpace(nameInputField.text) ? "신입생" : nameInputField.text.Trim();
-        StoryManager.Instance.SetPlayerName(playerName);
-        StoryManager.Instance.SetStoryState(StoryState.Intro_Meet_Dungddangi);
+        StoryManager.instance.SetPlayerName(playerName);
+        StoryManager.instance.SetStoryState(StoryState.Intro_Meet_Dungddangi);
     }
 
     void StartGame()
     {
-        StoryManager.Instance.SetStoryState(StoryState.Player_Name_Input);
+        StoryManager.instance.SetStoryState(StoryState.Player_Name_Input);
         if(stempSubmitButton) stempSubmitButton.gameObject.SetActive(false);
     }
 

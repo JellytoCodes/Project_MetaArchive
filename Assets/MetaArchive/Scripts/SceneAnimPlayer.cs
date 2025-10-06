@@ -17,35 +17,34 @@ public sealed class SceneStateClipPlayer : MonoBehaviour
     public bool stopOnExit = true;    // 상태가 벗어나면 정지
     public bool rewindOnExit = true;  // 정지 시 0프레임로 리셋
 
-    Animator _anim;
-    PlayableGraph _graph;
-    AnimationPlayableOutput _output;
-    AnimationClipPlayable _current;
-    bool _ready;
-    StoryState _lastState;
-    Coroutine _oneShotCo;
+    private Animator anim;
+    private PlayableGraph graph;
+    private AnimationPlayableOutput output;
+    private AnimationClipPlayable current;
+    private bool ready;
+    private StoryState lastState;
+    private Coroutine oneShotCo;
 
-    void Awake()
+    private void Awake()
     {
-        _anim = GetComponentInChildren<Animator>() ?? gameObject.AddComponent<Animator>();
-        _anim.applyRootMotion = false; // 권장
+        anim = GetComponentInChildren<Animator>() ?? gameObject.AddComponent<Animator>();
+        anim.applyRootMotion = false;
     }
 
-    void Start()
+    private void Start()
     {
-        _lastState = StoryManager.Instance ? StoryManager.Instance.CurrentStoryState : default;
-        // 시작 시 자동 재생 없음
+        lastState = StoryManager.instance ? StoryManager.instance.currentStoryState : default;
     }
 
-    void Update()
+    private void Update()
     {
-        var sm = StoryManager.Instance;
+        var sm = StoryManager.instance;
         if (!sm) return;
 
-        var cur = sm.CurrentStoryState;
-        if (cur == _lastState) return;
+        var cur = sm.currentStoryState;
+        if (cur == lastState) return;
 
-        bool wasPlayable = ShouldPlayOn(_lastState);
+        bool wasPlayable = ShouldPlayOn(lastState);
         bool nowPlayable = ShouldPlayOn(cur);
 
         if (!wasPlayable && nowPlayable)
@@ -54,7 +53,7 @@ public sealed class SceneStateClipPlayer : MonoBehaviour
         if (wasPlayable && !nowPlayable)
             OnExitState();          // 이탈 시 정지/리셋
 
-        _lastState = cur;
+        lastState = cur;
     }
 
     // ===== Core =====
@@ -63,14 +62,14 @@ public sealed class SceneStateClipPlayer : MonoBehaviour
         if (!clip) return;
         EnsureGraph();
 
-        if (_current.IsValid()) _current.Destroy();
-        _current = AnimationClipPlayable.Create(_graph, clip);
-        _current.SetApplyFootIK(false);
-        _output.SetSourcePlayable(_current);
-        if (!_graph.IsPlaying()) _graph.Play();
+        if (current.IsValid()) current.Destroy();
+        current = AnimationClipPlayable.Create(graph, clip);
+        current.SetApplyFootIK(false);
+        output.SetSourcePlayable(current);
+        if (!graph.IsPlaying()) graph.Play();
 
-        if (_oneShotCo != null) { StopCoroutine(_oneShotCo); _oneShotCo = null; }
-        if (!loop) _oneShotCo = StartCoroutine(CoStopAfter(clip.length));
+        if (oneShotCo != null) { StopCoroutine(oneShotCo); oneShotCo = null; }
+        if (!loop) oneShotCo = StartCoroutine(CoStopAfter(clip.length));
     }
 
     IEnumerator CoStopAfter(float seconds)
@@ -79,7 +78,7 @@ public sealed class SceneStateClipPlayer : MonoBehaviour
         float t0 = Time.realtimeSinceStartup;
         while (Time.realtimeSinceStartup - t0 < Mathf.Max(0.001f, seconds))
             yield return null;
-        _oneShotCo = null;
+        oneShotCo = null;
         OnExitState(); // 원샷 끝나면 자동 정지/리셋
     }
 
@@ -87,14 +86,14 @@ public sealed class SceneStateClipPlayer : MonoBehaviour
     {
         if (!stopOnExit) return;
 
-        if (_oneShotCo != null) { StopCoroutine(_oneShotCo); _oneShotCo = null; }
+        if (oneShotCo != null) { StopCoroutine(oneShotCo); oneShotCo = null; }
 
-        if (_current.IsValid())
+        if (current.IsValid())
         {
-            if (rewindOnExit) _current.SetTime(0);
-            _current.Pause();
+            if (rewindOnExit) current.SetTime(0);
+            current.Pause();
         }
-        if (_graph.IsValid() && _graph.IsPlaying()) _graph.Stop();
+        if (graph.IsValid() && graph.IsPlaying()) graph.Stop();
     }
 
     // ===== Helpers =====
@@ -108,20 +107,20 @@ public sealed class SceneStateClipPlayer : MonoBehaviour
 
     void EnsureGraph()
     {
-        if (_ready) return;
-        _graph  = PlayableGraph.Create($"SceneStateClipPlayer:{name}");
-        _output = AnimationPlayableOutput.Create(_graph, "Anim", _anim);
-        _ready  = true;
+        if (ready) return;
+        graph  = PlayableGraph.Create($"SceneStateClipPlayer:{name}");
+        output = AnimationPlayableOutput.Create(graph, "Anim", anim);
+        ready  = true;
     }
 
     void OnDisable()
     {
-        if (_oneShotCo != null) { StopCoroutine(_oneShotCo); _oneShotCo = null; }
-        if (_ready) _graph.Stop();
+        if (oneShotCo != null) { StopCoroutine(oneShotCo); oneShotCo = null; }
+        if (ready) graph.Stop();
     }
 
     void OnDestroy()
     {
-        if (_ready) { _graph.Destroy(); _ready = false; }
+        if (ready) { graph.Destroy(); ready = false; }
     }
 }

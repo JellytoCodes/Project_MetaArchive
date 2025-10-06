@@ -150,7 +150,6 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1690657818}
-  - {fileID: 911766520}
   m_Father: {fileID: 2099970469}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -4751,12 +4750,12 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 19758066}
+  m_Father: {fileID: 2099970469}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 1080, y: 1920}
+  m_SizeDelta: {x: 1080, y: 2280}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &911766521
 MonoBehaviour:
@@ -10302,7 +10301,6 @@ MonoBehaviour:
   metaverseShowRoomImage: {fileID: 1135975063}
   RestRoomImage: {fileID: 341558145}
   fadeImage: {fileID: 911766521}
-  defaultFadeDur: 200
 --- !u!114 &1605136647
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -13066,6 +13064,7 @@ RectTransform:
   - {fileID: 902224432}
   - {fileID: 365235910}
   - {fileID: 1662498635}
+  - {fileID: 911766520}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
